@@ -1,0 +1,11 @@
+# Gazebo (erl1 assignment world)
+/**:
+  ros__parameters:
+    use_sim_time: true
+
+aruco_detector:
+  ros__parameters:
+    image_topic: /camera/image
+    image_transport: raw
+    detections_topic: /aruco/detections
+    dictionary: DICT_ARUCO_ORIGINAL

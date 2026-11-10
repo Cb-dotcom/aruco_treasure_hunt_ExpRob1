@@ -1,0 +1,11 @@
+# Real ROSbot. Topic names marked VERIFY must be checked with `ros2 topic list` in the lab.
+/**:
+  ros__parameters:
+    use_sim_time: false
+
+aruco_detector:
+  ros__parameters:
+    image_topic: /camera/color/image_raw  # VERIFY
+    image_transport: compressed           # over Wi-Fi
+    detections_topic: /aruco/detections
+    dictionary: DICT_ARUCO_ORIGINAL
