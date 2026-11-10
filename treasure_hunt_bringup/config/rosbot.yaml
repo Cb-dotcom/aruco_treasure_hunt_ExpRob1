@@ -8,4 +8,5 @@ aruco_detector:
     image_topic: /camera/color/image_raw  # VERIFY
     image_transport: compressed           # over Wi-Fi
     detections_topic: /aruco/detections
+    marker_image_topic: /marker_image
     dictionary: DICT_ARUCO_ORIGINAL
