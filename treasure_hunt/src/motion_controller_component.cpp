@@ -46,6 +46,17 @@ const treasure_hunt_interfaces::msg::MarkerDetection * pick_new_marker(
   return best;
 }
 
+const treasure_hunt_interfaces::msg::MarkerDetection * find_marker(
+  const treasure_hunt_interfaces::msg::MarkerDetectionArray & detections, int32_t id)
+{
+  for (const auto & marker : detections.markers) {
+    if (marker.id == id) {
+      return &marker;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace
 
 MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions & options)
@@ -61,6 +72,13 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   detection_timeout_ = declare_parameter<double>("detection_timeout_sec", 1.0);
   search_linear_ = declare_parameter<double>("search.linear_velocity", 0.2);
   search_timeout_ = declare_parameter<double>("search.timeout_sec", 60.0);
+  k_omega_ = declare_parameter<double>("approach.k_omega", 0.004);
+  k_v_ = declare_parameter<double>("approach.k_v", 0.004);
+  target_side_ = declare_parameter<double>("approach.target_side_px", 166.0);
+  side_tolerance_ = declare_parameter<double>("approach.side_tolerance_px", 4.0);
+  center_tolerance_ = declare_parameter<double>("approach.center_tolerance_px", 10.0);
+  align_threshold_ = declare_parameter<double>("approach.align_threshold_px", 60.0);
+  lost_timeout_ = declare_parameter<double>("approach.lost_timeout_sec", 5.0);
   k_yaw_ = declare_parameter<double>("rotate.k_yaw", 1.5);
   yaw_tolerance_ = declare_parameter<double>("rotate.tolerance_rad", 0.02);
   min_angular_ = declare_parameter<double>("rotate.min_angular_velocity", 0.1);
@@ -122,6 +140,8 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
     };
 
   const auto start = std::chrono::steady_clock::now();
+  auto last_seen = start;
+  int32_t target_id = -1;
   rclcpp::WallRate rate(rate_hz_);
   while (rclcpp::ok()) {
     if (goal_handle->is_canceling()) {
@@ -132,22 +152,47 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
     }
 
     const auto detections = fresh_detections();
-    const auto * marker = detections ? pick_new_marker(*detections, ignore_ids) : nullptr;
-    if (marker) {
-      // TODO: servo on the marker until it reaches the target size.
-      stop_and_release();
-      result->success = true;
-      result->marker_id = marker->id;
-      goal_handle->succeed(result);
-      return;
+    if (target_id < 0 && detections) {
+      if (const auto * marker = pick_new_marker(*detections, ignore_ids)) {
+        target_id = marker->id;
+        RCLCPP_INFO(get_logger(), "Approaching marker %d", target_id);
+      }
     }
+    const auto * marker =
+      (target_id >= 0 && detections) ? find_marker(*detections, target_id) : nullptr;
 
-    // Search: go ahead until a new marker shows up.
-    if (seconds_since(start) > search_timeout_) {
-      abort_with("no new marker found");
-      return;
+    if (target_id < 0) {
+      // Search: go ahead until a new marker shows up.
+      if (seconds_since(start) > search_timeout_) {
+        abort_with("no new marker found");
+        return;
+      }
+      drive(search_linear_, 0.0);
+    } else if (marker) {
+      // Image-based visual servoing: centre the marker, then grow it to the target size.
+      last_seen = std::chrono::steady_clock::now();
+      const double error_u = marker->center_u - detections->image_width / 2.0;
+      const double error_s = target_side_px() - marker->side_px;
+      feedback->marker_id = target_id;
+      feedback->pixel_error = error_u;
+      feedback->side_error = error_s;
+      if (std::abs(error_s) < side_tolerance_ && std::abs(error_u) < center_tolerance_) {
+        stop_and_release();
+        result->success = true;
+        result->marker_id = target_id;
+        goal_handle->succeed(result);
+        return;
+      }
+      const double v = std::abs(error_u) < align_threshold_ ? k_v_ * error_s : 0.0;
+      drive(v, -k_omega_ * error_u);
+    } else {
+      // Marker lost: stop and wait for it to come back.
+      if (seconds_since(last_seen) > lost_timeout_) {
+        abort_with("marker " + std::to_string(target_id) + " lost");
+        return;
+      }
+      drive(0.0, 0.0);
     }
-    drive(search_linear_, 0.0);
     goal_handle->publish_feedback(feedback);
     rate.sleep();
   }
@@ -215,6 +260,11 @@ MotionControllerComponent::fresh_detections()
     return nullptr;
   }
   return detections_;
+}
+
+double MotionControllerComponent::target_side_px()
+{
+  return target_side_;
 }
 
 void MotionControllerComponent::drive(double linear, double angular)

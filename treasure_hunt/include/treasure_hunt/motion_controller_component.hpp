@@ -37,6 +37,7 @@ private:
   void execute_rotate(const std::shared_ptr<RotateGoalHandle> goal_handle);
   std::optional<double> current_yaw();
   MarkerDetectionArray::SharedPtr fresh_detections();  // nullptr if too old
+  double target_side_px();
   void drive(double linear, double angular);
   void stop_and_release();
 
@@ -58,6 +59,13 @@ private:
   double detection_timeout_;
   double search_linear_;
   double search_timeout_;
+  double k_omega_;
+  double k_v_;
+  double target_side_;
+  double side_tolerance_;
+  double center_tolerance_;
+  double align_threshold_;
+  double lost_timeout_;
   double k_yaw_;
   double yaw_tolerance_;
   double min_angular_;

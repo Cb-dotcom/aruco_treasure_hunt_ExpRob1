@@ -23,6 +23,14 @@ motion_controller:
     search:
       linear_velocity: 0.15
       timeout_sec: 60.0
+    approach:
+      k_omega: 0.003
+      k_v: 0.003
+      target_side_px: 166.0
+      side_tolerance_px: 6.0
+      center_tolerance_px: 15.0
+      align_threshold_px: 60.0
+      lost_timeout_sec: 5.0
     rotate:
       k_yaw: 1.5
       tolerance_rad: 0.03
