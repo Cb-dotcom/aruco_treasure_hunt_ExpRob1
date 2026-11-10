@@ -29,5 +29,6 @@ def generate_launch_description():
             executable='component_container_mt', output='screen',
             composable_node_descriptions=[
                 component('ArucoDetectorComponent', 'aruco_detector'),
+                component('MotionControllerComponent', 'motion_controller'),
             ]),
     ])

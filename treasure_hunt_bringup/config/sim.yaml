@@ -10,3 +10,12 @@ aruco_detector:
     detections_topic: /aruco/detections
     marker_image_topic: /marker_image
     dictionary: DICT_ARUCO_ORIGINAL
+
+motion_controller:
+  ros__parameters:
+    cmd_vel_topic: /cmd_vel
+    odom_topic: /odometry/filtered
+    detections_topic: /aruco/detections
+    control_rate_hz: 20.0
+    max_linear_velocity: 0.3
+    max_angular_velocity: 0.8
