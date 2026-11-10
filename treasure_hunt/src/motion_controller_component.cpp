@@ -91,7 +91,12 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   yaw_tolerance_ = declare_parameter<double>("rotate.tolerance_rad", 0.02);
   min_angular_ = declare_parameter<double>("rotate.min_angular_velocity", 0.1);
 
-  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
+  // The simulation bridge takes Twist; the ROS 2 driver of the real ROSbot takes TwistStamped.
+  if (declare_parameter<bool>("cmd_vel_stamped", false)) {
+    cmd_vel_stamped_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(cmd_vel_topic, 10);
+  } else {
+    cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
+  }
   detections_sub_ = create_subscription<MarkerDetectionArray>(
     detections_topic, 10, [this](MarkerDetectionArray::SharedPtr msg) {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -292,7 +297,15 @@ void MotionControllerComponent::drive(double linear, double angular)
   geometry_msgs::msg::Twist cmd;
   cmd.linear.x = std::clamp(linear, -max_linear_, max_linear_);
   cmd.angular.z = std::clamp(angular, -max_angular_, max_angular_);
-  cmd_vel_pub_->publish(cmd);
+  if (cmd_vel_stamped_pub_) {
+    // Zero stamp: the robot's controller stamps it with its own clock (laptop and robot clocks
+    // may differ, and a command that looks old is dropped).
+    geometry_msgs::msg::TwistStamped stamped;
+    stamped.twist = cmd;
+    cmd_vel_stamped_pub_->publish(stamped);
+  } else {
+    cmd_vel_pub_->publish(cmd);
+  }
 }
 
 // Free the slot before replying, so the next goal sent on the result is not rejected.
