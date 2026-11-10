@@ -28,15 +28,18 @@ double seconds_since(std::chrono::steady_clock::time_point time)
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - time).count();
 }
 
-// The new marker closest to the image centre (we "go ahead"), or nullptr.
+// The new marker closest to the image centre, or nullptr. We "go ahead", so markers further than
+// max_offset_px from the centre are not ahead of the robot and are ignored.
 const treasure_hunt_interfaces::msg::MarkerDetection * pick_new_marker(
   const treasure_hunt_interfaces::msg::MarkerDetectionArray & detections,
-  const std::vector<int32_t> & ignore_ids)
+  const std::vector<int32_t> & ignore_ids, double max_offset_px)
 {
   const double cx = detections.image_width / 2.0;
   const treasure_hunt_interfaces::msg::MarkerDetection * best = nullptr;
   for (const auto & marker : detections.markers) {
-    if (std::find(ignore_ids.begin(), ignore_ids.end(), marker.id) != ignore_ids.end()) {
+    if (std::find(ignore_ids.begin(), ignore_ids.end(), marker.id) != ignore_ids.end() ||
+      std::abs(marker.center_u - cx) > max_offset_px)
+    {
       continue;
     }
     if (!best || std::abs(marker.center_u - cx) < std::abs(best->center_u - cx)) {
@@ -75,6 +78,7 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   search_linear_ = declare_parameter<double>("search.linear_velocity", 0.2);
   search_timeout_ = declare_parameter<double>("search.timeout_sec", 60.0);
   search_angular_ = declare_parameter<double>("search.angular_velocity", 0.3);
+  search_max_offset_ = declare_parameter<double>("search.max_offset_px", 120.0);
   k_omega_ = declare_parameter<double>("approach.k_omega", 0.004);
   k_v_ = declare_parameter<double>("approach.k_v", 0.004);
   target_side_ = declare_parameter<double>("approach.target_side_px", 166.0);
@@ -163,7 +167,7 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
 
     const auto detections = fresh_detections();
     if (target_id < 0 && detections) {
-      if (const auto * marker = pick_new_marker(*detections, ignore_ids)) {
+      if (const auto * marker = pick_new_marker(*detections, ignore_ids, search_max_offset_)) {
         target_id = marker->id;
         RCLCPP_INFO(get_logger(), "Approaching marker %d", target_id);
       }

@@ -25,6 +25,7 @@ motion_controller:
       linear_velocity: 0.15
       timeout_sec: 60.0
       angular_velocity: 0.3             # turn to re-find a lost marker
+      max_offset_px: 120.0              # only lock onto markers ahead (|u - cx| below this)
     approach:
       k_omega: 0.003
       k_v: 0.003
