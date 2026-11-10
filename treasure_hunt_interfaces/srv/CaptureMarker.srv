@@ -1,0 +1,5 @@
+# Publish the last camera frame with marker_id circled and labelled.
+int32 marker_id
+---
+bool success
+string message

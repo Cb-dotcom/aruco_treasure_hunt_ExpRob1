@@ -8,6 +8,7 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/MarkerDetection.msg"
   "msg/MarkerDetectionArray.msg"
+  "srv/CaptureMarker.srv"
   DEPENDENCIES std_msgs
 )
 
