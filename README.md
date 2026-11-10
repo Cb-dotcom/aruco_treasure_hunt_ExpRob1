@@ -90,7 +90,7 @@ Motion behaviours (gains and tolerances in the same files):
 
 | Action | Behaviour |
 |---|---|
-| `reach_marker` | Go ahead until a new marker appears near the image centre, then image-based visual servoing: ω = −k_ω (u − c_x), v = k_v (s_d − s), moving forward only when roughly centred. Done when s ≈ s_d. If the marker is lost, turn towards where it was last seen. |
+| `reach_marker` | Go ahead until a new marker appears near the image centre, then image-based visual servoing: ω = −k_ω (u − c_x), v = k_v (s_d − s), moving forward only when roughly centred. Done when s ≈ s_d. A frame that misses the marker keeps the last command; if the marker left the view, turn towards it. |
 | `rotate_by` | Rotate in place by the requested angle, closed loop on the odometry yaw. |
 
 s_d = 166 px in simulation (camera about 0.46 m from the marker). On another camera it is scaled by

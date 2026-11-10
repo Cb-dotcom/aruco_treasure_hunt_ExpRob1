@@ -160,6 +160,8 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
   const auto start = std::chrono::steady_clock::now();
   auto last_seen = start;
   double last_error_u = 0.0;
+  double last_v = 0.0;
+  double last_w = 0.0;
   int32_t target_id = -1;
   rclcpp::WallRate rate(rate_hz_);
   while (rclcpp::ok()) {
@@ -203,16 +205,24 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
         goal_handle->succeed(result);
         return;
       }
-      const double v = std::abs(error_u) < align_threshold_ ? k_v_ * error_s : 0.0;
-      drive(v, -k_omega_ * error_u);
+      last_v = std::abs(error_u) < align_threshold_ ? k_v_ * error_s : 0.0;
+      last_w = -k_omega_ * error_u;
+      drive(last_v, last_w);
     } else {
-      // Marker lost: turn towards the side where it was last seen (wait if frames stop arriving).
+      // Marker not detected. Last seen off-centre: it left the view, turn towards it.
+      // Last seen ahead: it was only missed in this frame (far markers often are), so keep the
+      // last command; it slows down by itself near the target.
       if (seconds_since(last_seen) > lost_timeout_) {
         abort_with("marker " + std::to_string(target_id) + " lost");
         return;
       }
-      const double turn = last_error_u > 0.0 ? -search_angular_ : search_angular_;
-      drive(0.0, detections ? turn : 0.0);
+      if (!detections) {
+        drive(0.0, 0.0);  // camera frames stopped arriving: wait
+      } else if (std::abs(last_error_u) > search_max_offset_) {
+        drive(0.0, last_error_u > 0.0 ? -search_angular_ : search_angular_);
+      } else {
+        drive(last_v, last_w);
+      }
     }
     goal_handle->publish_feedback(feedback);
     rate.sleep();
