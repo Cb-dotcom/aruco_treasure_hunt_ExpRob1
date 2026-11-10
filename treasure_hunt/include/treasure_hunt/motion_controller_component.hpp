@@ -11,6 +11,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 #include "treasure_hunt_interfaces/action/reach_marker.hpp"
 #include "treasure_hunt_interfaces/action/rotate_by.hpp"
 #include "treasure_hunt_interfaces/msg/marker_detection_array.hpp"
@@ -46,11 +47,13 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Subscription<MarkerDetectionArray>::SharedPtr detections_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
 
   std::mutex mutex_;
   MarkerDetectionArray::SharedPtr detections_;  // latest frame
   std::chrono::steady_clock::time_point detections_time_;
   std::optional<double> yaw_;                   // latest odometry yaw [rad]
+  std::optional<double> focal_length_;          // fx from camera_info [px]
   std::atomic<bool> busy_{false};               // a behaviour is running
 
   double rate_hz_;
@@ -63,6 +66,7 @@ private:
   double k_omega_;
   double k_v_;
   double target_side_;
+  double reference_focal_length_;
   double side_tolerance_;
   double center_tolerance_;
   double align_threshold_;

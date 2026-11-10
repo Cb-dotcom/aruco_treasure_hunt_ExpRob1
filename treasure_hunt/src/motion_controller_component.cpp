@@ -66,6 +66,8 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   const auto odom_topic = declare_parameter<std::string>("odom_topic", "/odometry/filtered");
   const auto detections_topic =
     declare_parameter<std::string>("detections_topic", "/aruco/detections");
+  const auto camera_info_topic =
+    declare_parameter<std::string>("camera_info_topic", "/camera/camera_info");
   rate_hz_ = declare_parameter<double>("control_rate_hz", 20.0);
   max_linear_ = declare_parameter<double>("max_linear_velocity", 0.3);
   max_angular_ = declare_parameter<double>("max_angular_velocity", 0.8);
@@ -76,6 +78,7 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   k_omega_ = declare_parameter<double>("approach.k_omega", 0.004);
   k_v_ = declare_parameter<double>("approach.k_v", 0.004);
   target_side_ = declare_parameter<double>("approach.target_side_px", 166.0);
+  reference_focal_length_ = declare_parameter<double>("approach.reference_focal_length_px", 381.36);
   side_tolerance_ = declare_parameter<double>("approach.side_tolerance_px", 4.0);
   center_tolerance_ = declare_parameter<double>("approach.center_tolerance_px", 10.0);
   align_threshold_ = declare_parameter<double>("approach.align_threshold_px", 60.0);
@@ -95,6 +98,11 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
     odom_topic, rclcpp::SensorDataQoS(), [this](nav_msgs::msg::Odometry::SharedPtr msg) {
       std::lock_guard<std::mutex> lock(mutex_);
       yaw_ = yaw_from_quaternion(msg->pose.pose.orientation);
+    });
+  camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
+    camera_info_topic, rclcpp::SensorDataQoS(), [this](sensor_msgs::msg::CameraInfo::SharedPtr msg) {
+      std::lock_guard<std::mutex> lock(mutex_);
+      focal_length_ = msg->k[0];
     });
 
   // Accepted goals run in their own thread so sensor callbacks keep arriving.
@@ -265,9 +273,14 @@ MotionControllerComponent::fresh_detections()
   return detections_;
 }
 
+// Pinhole model s = f * L / d: the same stop distance on another camera means sd * f / f_ref.
 double MotionControllerComponent::target_side_px()
 {
-  return target_side_;
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!focal_length_) {
+    return target_side_;
+  }
+  return target_side_ * *focal_length_ / reference_focal_length_;
 }
 
 void MotionControllerComponent::drive(double linear, double angular)

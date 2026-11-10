@@ -16,6 +16,7 @@ motion_controller:
     cmd_vel_topic: /cmd_vel               # VERIFY message type: ros2 topic info /cmd_vel
     odom_topic: /odometry/filtered        # VERIFY
     detections_topic: /aruco/detections
+    camera_info_topic: /camera/color/camera_info  # VERIFY
     control_rate_hz: 20.0
     max_linear_velocity: 0.2
     max_angular_velocity: 0.6
@@ -27,7 +28,8 @@ motion_controller:
     approach:
       k_omega: 0.003
       k_v: 0.003
-      target_side_px: 166.0
+      target_side_px: 166.0             # scaled by fx / reference_focal_length_px
+      reference_focal_length_px: 381.36
       side_tolerance_px: 6.0
       center_tolerance_px: 15.0
       align_threshold_px: 60.0
