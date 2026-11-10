@@ -19,3 +19,11 @@ motion_controller:
     control_rate_hz: 20.0
     max_linear_velocity: 0.2
     max_angular_velocity: 0.6
+
+hunt_manager:
+  ros__parameters:
+    startup_delay_sec: 3.0
+    markers:
+      ids: [1, 2, 3]
+      rotations_deg: [-90.0, 180.0, 90.0]
+      final_id: 4

@@ -30,5 +30,6 @@ def generate_launch_description():
             composable_node_descriptions=[
                 component('ArucoDetectorComponent', 'aruco_detector'),
                 component('MotionControllerComponent', 'motion_controller'),
+                component('HuntManagerComponent', 'hunt_manager'),
             ]),
     ])

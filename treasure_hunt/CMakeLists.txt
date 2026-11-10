@@ -21,6 +21,7 @@ find_package(treasure_hunt_interfaces REQUIRED)
 add_library(${PROJECT_NAME} SHARED
   src/aruco_detector_component.cpp
   src/motion_controller_component.cpp
+  src/hunt_manager_component.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
@@ -33,6 +34,8 @@ rclcpp_components_register_node(${PROJECT_NAME}
   PLUGIN "treasure_hunt::ArucoDetectorComponent" EXECUTABLE aruco_detector)
 rclcpp_components_register_node(${PROJECT_NAME}
   PLUGIN "treasure_hunt::MotionControllerComponent" EXECUTABLE motion_controller)
+rclcpp_components_register_node(${PROJECT_NAME}
+  PLUGIN "treasure_hunt::HuntManagerComponent" EXECUTABLE hunt_manager)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
