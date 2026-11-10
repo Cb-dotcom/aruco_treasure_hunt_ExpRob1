@@ -32,6 +32,63 @@ mkdir -p ~/gazebo_models && cp -r erl1/models/. ~/gazebo_models/   # aruco_box_*
 cd ~/exprob_ws && colcon build --symlink-install && source install/setup.bash
 ```
 
+## Run
+
+Simulation:
+```bash
+ros2 launch treasure_hunt_bringup simulation.launch.py    # Gazebo, bridge, EKF, RViz
+ros2 launch treasure_hunt_bringup treasure_hunt.launch.py # in a second terminal
+ros2 run rqt_image_view rqt_image_view /marker_image
+```
+
+ROSbot (`ROS_DOMAIN_ID` 10, 11 or 12 for rosbot 1, 2 or 3):
+```bash
+export ROS_DOMAIN_ID=10
+ros2 launch treasure_hunt_bringup treasure_hunt.launch.py robot:=rosbot
+```
+
+## Architecture
+
+| Node | Role | Interfaces |
+|---|---|---|
+| `aruco_detector` | Perception | sub image (image_transport) → pub `/aruco/detections`; srv `capture_marker` → pub `/marker_image` |
+| `motion_controller` | Motion, the only node publishing `/cmd_vel` | actions `reach_marker`, `rotate_by`; sub `/aruco/detections`, `/odometry/filtered` |
+| `hunt_manager` | Mission state machine | clients of `reach_marker`, `rotate_by`, `capture_marker` |
+
+```mermaid
+flowchart LR
+  cam["/camera/image"] --> det[aruco_detector]
+  det -- "/aruco/detections" --> mot[motion_controller]
+  odom["/odometry/filtered"] --> mot
+  mot --> cmd["/cmd_vel"]
+  hunt[hunt_manager] -. "reach_marker, rotate_by" .-> mot
+  hunt -. "capture_marker" .-> det
+  det --> img["/marker_image"]
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> REACHING
+  REACHING --> CAPTURING: marker reached (166 px)
+  CAPTURING --> ROTATING: /marker_image published
+  ROTATING --> REACHING: rotation done
+  CAPTURING --> DONE: final marker
+  REACHING --> FAILED: goal aborted
+  DONE --> [*]
+```
+
+Marker instructions are parameters (`config/sim.yaml`, `config/rosbot.yaml`):
+
+| Marker | Instruction |
+|---|---|
+| 1 | turn right 90°, go ahead |
+| 2 | turn 180°, go ahead |
+| 3 | turn left 90°, go ahead |
+| 4 | treasure found, stop |
+
+Package layout: `treasure_hunt` (C++ components), `treasure_hunt_interfaces` (messages, service,
+actions), `treasure_hunt_bringup` (launch files and parameters).
+
 ## Team
 
 | Name | GitHub |
