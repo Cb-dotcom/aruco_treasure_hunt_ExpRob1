@@ -28,17 +28,25 @@ sudo apt install ros-jazzy-ros-gz ros-jazzy-robot-localization ros-jazzy-xacro \
 mkdir -p ~/exprob_ws/src && cd ~/exprob_ws/src
 git clone https://github.com/Cb-dotcom/aruco_treasure_hunt_ExpRob1.git aruco_treasure_hunt
 git clone https://github.com/CarmineD8/erl1.git
-mkdir -p ~/gazebo_models && cp -r erl1/models/. ~/gazebo_models/   # aruco_box_* models
+mkdir -p ~/gazebo_models && cp -r erl1/models/. ~/gazebo_models/  
 cd ~/exprob_ws && colcon build --symlink-install && source install/setup.bash
 ```
 
 ## Run
 
-Simulation:
+### Simulation
+
+Terminal 1:
 ```bash
 ros2 launch treasure_hunt_bringup simulation.launch.py    # Gazebo, bridge, EKF, RViz
-ros2 launch treasure_hunt_bringup treasure_hunt.launch.py # in a second terminal
-ros2 run rqt_image_view rqt_image_view /marker_image
+```
+Terminal 2:
+```bash
+ros2 launch treasure_hunt_bringup treasure_hunt.launch.py # Let the hunt begin
+```
+Terminal 3: 
+```bash
+ros2 run rqt_image_view rqt_image_view /marker_image # Image check on viewer
 ```
 
 ROSbot (`ROS_DOMAIN_ID` 10, 11 or 12 for rosbot 1, 2 or 3):
@@ -48,6 +56,9 @@ ros2 launch treasure_hunt_bringup treasure_hunt.launch.py robot:=rosbot
 ```
 
 ## Architecture
+
+Package layout: `treasure_hunt` (C++ components), `treasure_hunt_interfaces` (messages, service,
+actions), `treasure_hunt_bringup` (launch files and parameters).
 
 | Node | Role | Interfaces |
 |---|---|---|
@@ -66,6 +77,8 @@ flowchart LR
   det --> img["/marker_image"]
 ```
 
+### State machine (`hunt_manager`)
+
 ```mermaid
 stateDiagram-v2
   [*] --> REACHING
@@ -73,7 +86,8 @@ stateDiagram-v2
   CAPTURING --> ROTATING: /marker_image published
   ROTATING --> REACHING: rotation done
   CAPTURING --> DONE: final marker
-  REACHING --> FAILED: goal aborted
+  REACHING --> FAILED: marker not found or lost
+  ROTATING --> FAILED: rotation aborted
   DONE --> [*]
 ```
 
@@ -86,25 +100,77 @@ Marker instructions are parameters (`config/sim.yaml`, `config/rosbot.yaml`):
 | 3 | turn left 90°, go ahead |
 | 4 | treasure found, stop |
 
-Motion behaviours (gains and tolerances in the same files):
+### Motion behaviours (`motion_controller`)
 
-| Action | Behaviour |
+Notation: $u$ is the column (px) of the marker centre, $c_x$ the image centre column, $s$ the
+marker side (px) and $s_d$ the side at which the robot stops. The numbers below are the simulation
+values; gains and tolerances are parameters in the same config files.
+
+#### `reach_marker`: find the next marker and stop in front of it
+
+1. **Search.** Drive straight ahead until a marker that has not been done yet appears near the
+   image centre, i.e. $\lvert u - c_x \rvert < 120$ px.
+2. **Visual servoing.** Turn to keep the marker centred and drive forward until it looks as big as $s_d$:
+
+$$
+\omega = -k_\omega \, (u - c_x)
+\qquad\qquad
+v =
+\begin{cases}
+k_v \, (s_d - s) & \text{if } \lvert u - c_x \rvert < 60 \text{ px} \\
+0 & \text{otherwise (centre it first)}
+\end{cases}
+$$
+
+3. **Done** when $\lvert s_d - s \rvert < 4$ px and $\lvert u - c_x \rvert < 10$ px.
+4. **Missed frames.** If a frame misses the marker but it was last seen ahead, the robot keeps its
+   last command (far markers are not detected in every frame). If the marker left the view, it
+   turns towards it. If camera frames stop arriving, it stops.
+
+#### `rotate_by`: turn in place by an angle $\theta$
+
+The robot adds up the yaw increments from the odometry, $\Delta\psi$ (so 180° and 360° work), and turns with
+
+$$
+\omega = k_\psi \, (\theta - \Delta\psi)
+$$
+
+until $\lvert \theta - \Delta\psi \rvert < 0.02$ rad, never slower than 0.1 rad/s so it does not stall.
+Positive $\theta$ turns left.
+
+### Stop distance ($s_d$)
+
+A camera with focal length $f_x$ (pixels) sees a marker of side $L$ at distance $d$ with side
+
+$$
+s = \frac{f_x \, L}{d}
+$$
+
+In simulation the image is 640 px wide with an 80° horizontal field of view, so
+
+$$
+f_x = \frac{320}{\tan 40^\circ} \approx 381.36 \text{ px}
+\qquad\Rightarrow\qquad
+s_d = 166 \text{ px} \;\Leftrightarrow\; d = \frac{381.36 \cdot 0.2}{166} \approx 0.46 \text{ m}
+$$
+
+(camera to marker). On the ROSbot the camera has another focal length $f_x'$, read from
+`camera_info`, and the target is scaled so the robot stops at the same distance without retuning:
+
+$$
+s_d' = 166 \cdot \frac{f_x'}{381.36}
+$$
+
+## Contributors
+
+| Name | GitHub | 
 |---|---|
-| `reach_marker` | Go ahead until a new marker appears near the image centre, then image-based visual servoing: ω = −k_ω (u − c_x), v = k_v (s_d − s), moving forward only when roughly centred. Done when s ≈ s_d. A frame that misses the marker keeps the last command; if the marker left the view, turn towards it. |
-| `rotate_by` | Rotate in place by the requested angle, closed loop on the odometry yaw. |
+| Charbel El Beaini | [@Cb-dotcom](https://github.com/Cb-dotcom) | 
+| Endri Gjinaj | [@egjinaj](https://github.com/egjinaj) |
+| Joel Topuli | [@IloPinci](https://github.com/IloPinci) | 
+| Reynald Awad | [@reyaouad](https://github.com/reyaouad) |
 
-s_d = 166 px in simulation (camera about 0.46 m from the marker). On another camera it is scaled by
-f_x / 381.36 (pinhole model s = f·L/d), with f_x read from `camera_info`, so the stop distance stays
-the same.
 
-Package layout: `treasure_hunt` (C++ components), `treasure_hunt_interfaces` (messages, service,
-actions), `treasure_hunt_bringup` (launch files and parameters).
-
-## Team
-
-| Name | GitHub |
-|---|---|
-| Charbel El Beaini | [@Cb-dotcom](https://github.com/Cb-dotcom) |
-| | |
-| | |
-| | |
+<a href="https://github.com/Cb-dotcom/aruco_treasure_hunt_ExpRob1/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Cb-dotcom/aruco_treasure_hunt_ExpRob1&branch=main&v=3" alt="Contributors" />
+</a>
