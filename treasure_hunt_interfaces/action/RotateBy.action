@@ -1,0 +1,7 @@
+# Rotate in place by angle_rad (+ = counter-clockwise), closed loop on the odometry yaw.
+float64 angle_rad
+---
+bool success
+string message
+---
+float64 remaining_rad

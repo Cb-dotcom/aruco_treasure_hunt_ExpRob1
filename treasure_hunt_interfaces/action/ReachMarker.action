@@ -1,0 +1,11 @@
+# Drive ahead until a marker not in ignore_ids is seen, then servo on it (image-based)
+# until its apparent side reaches the target size.
+int32[] ignore_ids
+---
+bool success
+int32 marker_id
+string message
+---
+int32 marker_id       # -1 while searching
+float64 pixel_error   # u - cx [px]
+float64 side_error    # sd - s [px]

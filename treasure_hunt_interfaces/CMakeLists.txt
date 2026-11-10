@@ -9,6 +9,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/MarkerDetection.msg"
   "msg/MarkerDetectionArray.msg"
   "srv/CaptureMarker.srv"
+  "action/ReachMarker.action"
+  "action/RotateBy.action"
   DEPENDENCIES std_msgs
 )
 
