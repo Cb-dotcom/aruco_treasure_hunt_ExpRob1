@@ -17,6 +17,11 @@ double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
   return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
+double wrap_angle(double angle)
+{
+  return std::atan2(std::sin(angle), std::cos(angle));
+}
+
 }  // namespace
 
 MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions & options)
@@ -29,6 +34,9 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   rate_hz_ = declare_parameter<double>("control_rate_hz", 20.0);
   max_linear_ = declare_parameter<double>("max_linear_velocity", 0.3);
   max_angular_ = declare_parameter<double>("max_angular_velocity", 0.8);
+  k_yaw_ = declare_parameter<double>("rotate.k_yaw", 1.5);
+  yaw_tolerance_ = declare_parameter<double>("rotate.tolerance_rad", 0.02);
+  min_angular_ = declare_parameter<double>("rotate.min_angular_velocity", 0.1);
 
   cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
   detections_sub_ = create_subscription<MarkerDetectionArray>(
@@ -86,12 +94,56 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
 
 void MotionControllerComponent::execute_rotate(const std::shared_ptr<RotateGoalHandle> goal_handle)
 {
-  // TODO: closed loop on the odometry yaw: omega = k_yaw * wrap(target - yaw) until |error| is small.
+  const double angle = goal_handle->get_goal()->angle_rad;
   auto result = std::make_shared<RotateBy::Result>();
-  result->message = "not implemented";
-  drive(0.0, 0.0);
-  goal_handle->abort(result);
-  busy_ = false;
+  auto feedback = std::make_shared<RotateBy::Feedback>();
+
+  auto last_yaw = current_yaw();
+  if (!last_yaw) {
+    stop_and_release();
+    result->message = "no odometry";
+    goal_handle->abort(result);
+    return;
+  }
+
+  // Sum the yaw increments instead of wrapping a target angle, so 180 deg and more work too.
+  double turned = 0.0;
+  rclcpp::WallRate rate(rate_hz_);
+  while (rclcpp::ok()) {
+    if (goal_handle->is_canceling()) {
+      stop_and_release();
+      result->message = "canceled";
+      goal_handle->canceled(result);
+      return;
+    }
+
+    const double yaw = current_yaw().value();
+    turned += wrap_angle(yaw - *last_yaw);
+    last_yaw = yaw;
+    const double remaining = angle - turned;
+    if (std::abs(remaining) < yaw_tolerance_) {
+      break;
+    }
+
+    double omega = k_yaw_ * remaining;
+    if (std::abs(omega) < min_angular_) {
+      omega = std::copysign(min_angular_, remaining);
+    }
+    drive(0.0, omega);
+    feedback->remaining_rad = remaining;
+    goal_handle->publish_feedback(feedback);
+    rate.sleep();
+  }
+
+  stop_and_release();
+  result->success = true;
+  goal_handle->succeed(result);
+}
+
+std::optional<double> MotionControllerComponent::current_yaw()
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  return yaw_;
 }
 
 void MotionControllerComponent::drive(double linear, double angular)
@@ -100,6 +152,13 @@ void MotionControllerComponent::drive(double linear, double angular)
   cmd.linear.x = std::clamp(linear, -max_linear_, max_linear_);
   cmd.angular.z = std::clamp(angular, -max_angular_, max_angular_);
   cmd_vel_pub_->publish(cmd);
+}
+
+// Free the slot before replying, so the next goal sent on the result is not rejected.
+void MotionControllerComponent::stop_and_release()
+{
+  drive(0.0, 0.0);
+  busy_ = false;
 }
 
 }  // namespace treasure_hunt

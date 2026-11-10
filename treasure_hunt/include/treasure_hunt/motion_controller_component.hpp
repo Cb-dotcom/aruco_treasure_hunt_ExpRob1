@@ -34,7 +34,9 @@ private:
   rclcpp_action::GoalResponse accept_if_idle();
   void execute_reach(const std::shared_ptr<ReachGoalHandle> goal_handle);
   void execute_rotate(const std::shared_ptr<RotateGoalHandle> goal_handle);
+  std::optional<double> current_yaw();
   void drive(double linear, double angular);
+  void stop_and_release();
 
   rclcpp_action::Server<ReachMarker>::SharedPtr reach_server_;
   rclcpp_action::Server<RotateBy>::SharedPtr rotate_server_;
@@ -50,6 +52,9 @@ private:
   double rate_hz_;
   double max_linear_;
   double max_angular_;
+  double k_yaw_;
+  double yaw_tolerance_;
+  double min_angular_;
 };
 
 }  // namespace treasure_hunt
