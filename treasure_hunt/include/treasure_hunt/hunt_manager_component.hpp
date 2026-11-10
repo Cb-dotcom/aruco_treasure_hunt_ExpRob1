@@ -22,6 +22,8 @@ public:
   using ReachMarker = treasure_hunt_interfaces::action::ReachMarker;
   using RotateBy = treasure_hunt_interfaces::action::RotateBy;
   using CaptureMarker = treasure_hunt_interfaces::srv::CaptureMarker;
+  using ReachGoalHandle = rclcpp_action::ClientGoalHandle<ReachMarker>;
+  using RotateGoalHandle = rclcpp_action::ClientGoalHandle<RotateBy>;
 
   explicit HuntManagerComponent(const rclcpp::NodeOptions & options);
 
@@ -29,6 +31,10 @@ private:
   enum class State { IDLE, REACHING, CAPTURING, ROTATING, DONE, FAILED };
 
   void start();
+  void reach_next_marker();
+  void on_marker_reached(const ReachGoalHandle::WrappedResult & result);
+  void on_marker_captured(int marker_id);
+  void on_rotated(const RotateGoalHandle::WrappedResult & result);
   void set_state(State state, const std::string & reason);
 
   rclcpp_action::Client<ReachMarker>::SharedPtr reach_client_;

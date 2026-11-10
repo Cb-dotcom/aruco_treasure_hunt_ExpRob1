@@ -50,11 +50,82 @@ HuntManagerComponent::HuntManagerComponent(const rclcpp::NodeOptions & options)
 
 void HuntManagerComponent::start()
 {
-  // TODO: REACHING  -> send reach_marker(ignore_ids = done_ids_)
-  //       CAPTURING -> call capture_marker(id) to publish /marker_image
-  //       final id  -> DONE ("treasure found"), else ROTATING -> rotate_by(rotations_[id])
-  //       -> back to REACHING. Any failed goal -> FAILED.
-  set_state(State::IDLE, "state machine not implemented yet");
+  const auto timeout = std::chrono::seconds(10);
+  if (!reach_client_->wait_for_action_server(timeout) ||
+    !rotate_client_->wait_for_action_server(timeout) ||
+    !capture_client_->wait_for_service(timeout))
+  {
+    set_state(State::FAILED, "motion controller or detector not available");
+    return;
+  }
+  reach_next_marker();
+}
+
+// REACHING: go ahead to the next marker we have not executed yet.
+void HuntManagerComponent::reach_next_marker()
+{
+  set_state(State::REACHING, "looking for the next marker");
+  ReachMarker::Goal goal;
+  goal.ignore_ids = done_ids_;
+  rclcpp_action::Client<ReachMarker>::SendGoalOptions options;
+  options.result_callback = [this](const ReachGoalHandle::WrappedResult & result) {
+      on_marker_reached(result);
+    };
+  reach_client_->async_send_goal(goal, options);
+}
+
+// CAPTURING: publish /marker_image for the marker we stopped in front of.
+void HuntManagerComponent::on_marker_reached(const ReachGoalHandle::WrappedResult & result)
+{
+  if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
+    set_state(State::FAILED, "reach_marker failed: " + result.result->message);
+    return;
+  }
+  const int marker_id = result.result->marker_id;
+  set_state(State::CAPTURING, "reached marker " + std::to_string(marker_id));
+  auto request = std::make_shared<CaptureMarker::Request>();
+  request->marker_id = marker_id;
+  capture_client_->async_send_request(
+    request, [this, marker_id](rclcpp::Client<CaptureMarker>::SharedFuture future) {
+      if (!future.get()->success) {
+        RCLCPP_WARN(get_logger(), "No /marker_image: %s", future.get()->message.c_str());
+      }
+      on_marker_captured(marker_id);
+    });
+}
+
+// ROTATING: execute the marker's instruction, or stop at the treasure.
+void HuntManagerComponent::on_marker_captured(int marker_id)
+{
+  done_ids_.push_back(marker_id);
+  if (marker_id == final_id_) {
+    set_state(State::DONE, "treasure found at marker " + std::to_string(marker_id) + "!");
+    return;
+  }
+  const auto instruction = rotations_.find(marker_id);
+  if (instruction == rotations_.end()) {
+    set_state(State::FAILED, "no instruction for marker " + std::to_string(marker_id));
+    return;
+  }
+  set_state(
+    State::ROTATING, "marker " + std::to_string(marker_id) + ": rotate " +
+    std::to_string(static_cast<int>(std::round(instruction->second * 180.0 / M_PI))) + " deg");
+  RotateBy::Goal goal;
+  goal.angle_rad = instruction->second;
+  rclcpp_action::Client<RotateBy>::SendGoalOptions options;
+  options.result_callback = [this](const RotateGoalHandle::WrappedResult & result) {
+      on_rotated(result);
+    };
+  rotate_client_->async_send_goal(goal, options);
+}
+
+void HuntManagerComponent::on_rotated(const RotateGoalHandle::WrappedResult & result)
+{
+  if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
+    set_state(State::FAILED, "rotate_by failed: " + result.result->message);
+    return;
+  }
+  reach_next_marker();
 }
 
 void HuntManagerComponent::set_state(State state, const std::string & reason)
