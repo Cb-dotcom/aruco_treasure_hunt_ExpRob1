@@ -59,6 +59,7 @@ private:
   double detection_timeout_;
   double search_linear_;
   double search_timeout_;
+  double search_angular_;
   double k_omega_;
   double k_v_;
   double target_side_;

@@ -23,6 +23,7 @@ motion_controller:
     search:
       linear_velocity: 0.15
       timeout_sec: 60.0
+      angular_velocity: 0.3             # turn to re-find a lost marker
     approach:
       k_omega: 0.003
       k_v: 0.003

@@ -23,6 +23,7 @@ motion_controller:
     search:                             # go ahead until a new marker is seen
       linear_velocity: 0.2
       timeout_sec: 60.0
+      angular_velocity: 0.3             # turn to re-find a lost marker
     approach:                           # w = -k_omega (u - cx), v = k_v (sd - s)
       k_omega: 0.004
       k_v: 0.004

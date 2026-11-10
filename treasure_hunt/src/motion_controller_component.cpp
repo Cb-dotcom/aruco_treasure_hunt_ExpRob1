@@ -72,6 +72,7 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   detection_timeout_ = declare_parameter<double>("detection_timeout_sec", 1.0);
   search_linear_ = declare_parameter<double>("search.linear_velocity", 0.2);
   search_timeout_ = declare_parameter<double>("search.timeout_sec", 60.0);
+  search_angular_ = declare_parameter<double>("search.angular_velocity", 0.3);
   k_omega_ = declare_parameter<double>("approach.k_omega", 0.004);
   k_v_ = declare_parameter<double>("approach.k_v", 0.004);
   target_side_ = declare_parameter<double>("approach.target_side_px", 166.0);
@@ -141,6 +142,7 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
 
   const auto start = std::chrono::steady_clock::now();
   auto last_seen = start;
+  double last_error_u = 0.0;
   int32_t target_id = -1;
   rclcpp::WallRate rate(rate_hz_);
   while (rclcpp::ok()) {
@@ -173,6 +175,7 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
       last_seen = std::chrono::steady_clock::now();
       const double error_u = marker->center_u - detections->image_width / 2.0;
       const double error_s = target_side_px() - marker->side_px;
+      last_error_u = error_u;
       feedback->marker_id = target_id;
       feedback->pixel_error = error_u;
       feedback->side_error = error_s;
@@ -186,12 +189,12 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
       const double v = std::abs(error_u) < align_threshold_ ? k_v_ * error_s : 0.0;
       drive(v, -k_omega_ * error_u);
     } else {
-      // Marker lost: stop and wait for it to come back.
+      // Marker lost: turn towards the side where it was last seen.
       if (seconds_since(last_seen) > lost_timeout_) {
         abort_with("marker " + std::to_string(target_id) + " lost");
         return;
       }
-      drive(0.0, 0.0);
+      drive(0.0, last_error_u > 0.0 ? -search_angular_ : search_angular_);
     }
     goal_handle->publish_feedback(feedback);
     rate.sleep();
