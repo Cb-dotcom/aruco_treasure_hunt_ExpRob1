@@ -2,6 +2,7 @@
 #define TREASURE_HUNT__MOTION_CONTROLLER_COMPONENT_HPP_
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -35,6 +36,7 @@ private:
   void execute_reach(const std::shared_ptr<ReachGoalHandle> goal_handle);
   void execute_rotate(const std::shared_ptr<RotateGoalHandle> goal_handle);
   std::optional<double> current_yaw();
+  MarkerDetectionArray::SharedPtr fresh_detections();  // nullptr if too old
   void drive(double linear, double angular);
   void stop_and_release();
 
@@ -46,12 +48,16 @@ private:
 
   std::mutex mutex_;
   MarkerDetectionArray::SharedPtr detections_;  // latest frame
+  std::chrono::steady_clock::time_point detections_time_;
   std::optional<double> yaw_;                   // latest odometry yaw [rad]
   std::atomic<bool> busy_{false};               // a behaviour is running
 
   double rate_hz_;
   double max_linear_;
   double max_angular_;
+  double detection_timeout_;
+  double search_linear_;
+  double search_timeout_;
   double k_yaw_;
   double yaw_tolerance_;
   double min_angular_;

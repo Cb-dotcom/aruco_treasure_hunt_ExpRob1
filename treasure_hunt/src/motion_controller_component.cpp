@@ -4,6 +4,7 @@
 #include <cmath>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "rclcpp_components/register_node_macro.hpp"
 
@@ -22,6 +23,29 @@ double wrap_angle(double angle)
   return std::atan2(std::sin(angle), std::cos(angle));
 }
 
+double seconds_since(std::chrono::steady_clock::time_point time)
+{
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - time).count();
+}
+
+// The new marker closest to the image centre (we "go ahead"), or nullptr.
+const treasure_hunt_interfaces::msg::MarkerDetection * pick_new_marker(
+  const treasure_hunt_interfaces::msg::MarkerDetectionArray & detections,
+  const std::vector<int32_t> & ignore_ids)
+{
+  const double cx = detections.image_width / 2.0;
+  const treasure_hunt_interfaces::msg::MarkerDetection * best = nullptr;
+  for (const auto & marker : detections.markers) {
+    if (std::find(ignore_ids.begin(), ignore_ids.end(), marker.id) != ignore_ids.end()) {
+      continue;
+    }
+    if (!best || std::abs(marker.center_u - cx) < std::abs(best->center_u - cx)) {
+      best = &marker;
+    }
+  }
+  return best;
+}
+
 }  // namespace
 
 MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions & options)
@@ -34,6 +58,9 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   rate_hz_ = declare_parameter<double>("control_rate_hz", 20.0);
   max_linear_ = declare_parameter<double>("max_linear_velocity", 0.3);
   max_angular_ = declare_parameter<double>("max_angular_velocity", 0.8);
+  detection_timeout_ = declare_parameter<double>("detection_timeout_sec", 1.0);
+  search_linear_ = declare_parameter<double>("search.linear_velocity", 0.2);
+  search_timeout_ = declare_parameter<double>("search.timeout_sec", 60.0);
   k_yaw_ = declare_parameter<double>("rotate.k_yaw", 1.5);
   yaw_tolerance_ = declare_parameter<double>("rotate.tolerance_rad", 0.02);
   min_angular_ = declare_parameter<double>("rotate.min_angular_velocity", 0.1);
@@ -43,6 +70,7 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
     detections_topic, 10, [this](MarkerDetectionArray::SharedPtr msg) {
       std::lock_guard<std::mutex> lock(mutex_);
       detections_ = msg;
+      detections_time_ = std::chrono::steady_clock::now();
     });
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     odom_topic, rclcpp::SensorDataQoS(), [this](nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -82,14 +110,47 @@ rclcpp_action::GoalResponse MotionControllerComponent::accept_if_idle()
 
 void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHandle> goal_handle)
 {
-  // TODO: drive ahead until a marker not in ignore_ids is seen, then servo on it:
-  //   omega = -k_omega * (u - cx),  v = k_v * (sd - s)  until |sd - s| and |u - cx| are small.
+  const auto ignore_ids = goal_handle->get_goal()->ignore_ids;
   auto result = std::make_shared<ReachMarker::Result>();
+  auto feedback = std::make_shared<ReachMarker::Feedback>();
   result->marker_id = -1;
-  result->message = "not implemented";
-  drive(0.0, 0.0);
-  goal_handle->abort(result);
-  busy_ = false;
+  feedback->marker_id = -1;
+  auto abort_with = [&](const std::string & message) {
+      stop_and_release();
+      result->message = message;
+      goal_handle->abort(result);
+    };
+
+  const auto start = std::chrono::steady_clock::now();
+  rclcpp::WallRate rate(rate_hz_);
+  while (rclcpp::ok()) {
+    if (goal_handle->is_canceling()) {
+      stop_and_release();
+      result->message = "canceled";
+      goal_handle->canceled(result);
+      return;
+    }
+
+    const auto detections = fresh_detections();
+    const auto * marker = detections ? pick_new_marker(*detections, ignore_ids) : nullptr;
+    if (marker) {
+      // TODO: servo on the marker until it reaches the target size.
+      stop_and_release();
+      result->success = true;
+      result->marker_id = marker->id;
+      goal_handle->succeed(result);
+      return;
+    }
+
+    // Search: go ahead until a new marker shows up.
+    if (seconds_since(start) > search_timeout_) {
+      abort_with("no new marker found");
+      return;
+    }
+    drive(search_linear_, 0.0);
+    goal_handle->publish_feedback(feedback);
+    rate.sleep();
+  }
 }
 
 void MotionControllerComponent::execute_rotate(const std::shared_ptr<RotateGoalHandle> goal_handle)
@@ -144,6 +205,16 @@ std::optional<double> MotionControllerComponent::current_yaw()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   return yaw_;
+}
+
+MotionControllerComponent::MarkerDetectionArray::SharedPtr
+MotionControllerComponent::fresh_detections()
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!detections_ || seconds_since(detections_time_) > detection_timeout_) {
+    return nullptr;
+  }
+  return detections_;
 }
 
 void MotionControllerComponent::drive(double linear, double angular)

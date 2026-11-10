@@ -19,6 +19,10 @@ motion_controller:
     control_rate_hz: 20.0
     max_linear_velocity: 0.3
     max_angular_velocity: 0.8
+    detection_timeout_sec: 1.0          # ignore detections older than this
+    search:                             # go ahead until a new marker is seen
+      linear_velocity: 0.2
+      timeout_sec: 60.0
     rotate:                             # omega = k_yaw * remaining angle
       k_yaw: 1.5
       tolerance_rad: 0.02
