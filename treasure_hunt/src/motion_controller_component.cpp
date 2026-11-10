@@ -181,12 +181,12 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
       (target_id >= 0 && detections) ? find_marker(*detections, target_id) : nullptr;
 
     if (target_id < 0) {
-      // Search: go ahead until a new marker shows up.
+      // Search: go ahead until a new marker shows up (wait if camera frames stop arriving).
       if (seconds_since(start) > search_timeout_) {
         abort_with("no new marker found");
         return;
       }
-      drive(search_linear_, 0.0);
+      drive(detections ? search_linear_ : 0.0, 0.0);
     } else if (marker) {
       // Image-based visual servoing: centre the marker, then grow it to the target size.
       last_seen = std::chrono::steady_clock::now();
@@ -206,12 +206,13 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
       const double v = std::abs(error_u) < align_threshold_ ? k_v_ * error_s : 0.0;
       drive(v, -k_omega_ * error_u);
     } else {
-      // Marker lost: turn towards the side where it was last seen.
+      // Marker lost: turn towards the side where it was last seen (wait if frames stop arriving).
       if (seconds_since(last_seen) > lost_timeout_) {
         abort_with("marker " + std::to_string(target_id) + " lost");
         return;
       }
-      drive(0.0, last_error_u > 0.0 ? -search_angular_ : search_angular_);
+      const double turn = last_error_u > 0.0 ? -search_angular_ : search_angular_;
+      drive(0.0, detections ? turn : 0.0);
     }
     goal_handle->publish_feedback(feedback);
     rate.sleep();
