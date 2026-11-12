@@ -1,0 +1,50 @@
+# Real ROSbot. Topic names marked VERIFY must be checked with `ros2 topic list` in the lab.
+/**:
+  ros__parameters:
+    use_sim_time: false
+
+aruco_detector:
+  ros__parameters:
+    image_topic: /rosbot_1/camera/rgb/image_raw  # VERIFY
+    image_transport: compressed           # over Wi-Fi
+    detections_topic: /aruco/detections
+    marker_image_topic: /marker_image
+    dictionary: DICT_ARUCO_ORIGINAL
+
+motion_controller:
+  ros__parameters:
+    cmd_vel_topic: /rosbot_1/cmd_vel
+    cmd_vel_stamped: false               # VERIFY: ros2 topic info /cmd_vel (TwistStamped -> true)
+    odom_topic: /rosbot_1/odometry/filtered        # VERIFY
+    detections_topic: /aruco/detections
+    camera_info_topic: /rosbot_1/camera/rgb/camera_info  # VERIFY
+    control_rate_hz: 20.0
+    max_linear_velocity: 0.2
+    max_angular_velocity: 0.6
+    detection_timeout_sec: 1.0
+    search:
+      linear_velocity: 0.15
+      timeout_sec: 60.0
+      angular_velocity: 0.3             # turn to re-find a lost marker
+      max_offset_px: 120.0              # only lock onto markers ahead (|u - cx| below this)
+    approach:
+      k_omega: 0.003
+      k_v: 0.003
+      target_side_px: 166.0             # scaled by fx / reference_focal_length_px
+      reference_focal_length_px: 381.36
+      side_tolerance_px: 6.0
+      center_tolerance_px: 15.0
+      align_threshold_px: 60.0
+      lost_timeout_sec: 5.0
+    rotate:
+      k_yaw: 1.5
+      tolerance_rad: 0.03
+      min_angular_velocity: 0.2           # TUNE: smallest speed that still turns the robot
+
+hunt_manager:
+  ros__parameters:
+    startup_delay_sec: 3.0
+    markers:
+      ids: [1, 2, 3]
+      rotations_deg: [-90.0, 180.0, 90.0]
+      final_id: 4

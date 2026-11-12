@@ -1,0 +1,15 @@
+{
+  "name": "treasure-hunt (jazzy)",
+  "build": { "dockerfile": "Dockerfile" },
+  "runArgs": [
+    "--privileged",
+    "--network=host",
+    "--env=DISPLAY",
+    "--env=ROS_DOMAIN_ID",
+    "--volume=/tmp/.X11-unix:/tmp/.X11-unix:rw"
+  ],
+  "workspaceMount": "source=${localWorkspaceFolder},target=/ws/src/aruco_treasure_hunt,type=bind",
+  "workspaceFolder": "/ws/src/aruco_treasure_hunt",
+  "remoteUser": "ros",
+  "postCreateCommand": "sudo chown ros:ros /ws /ws/src && cd /ws/src && ([ -d erl1 ] || git clone https://github.com/CarmineD8/erl1.git) && mkdir -p ~/gazebo_models && cp -r erl1/models/. ~/gazebo_models/ && cd /ws && colcon build --symlink-install"
+}
