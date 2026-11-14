@@ -1,23 +1,23 @@
-# Real ROSbot. Topic names marked VERIFY must be checked with `ros2 topic list` in the lab.
+# Real ROSbot (rosbot_1). For another robot, change the /rosbot_N prefix.
 /**:
   ros__parameters:
     use_sim_time: false
 
 aruco_detector:
   ros__parameters:
-    image_topic: /camera/color/image_raw  # VERIFY
-    image_transport: compressed           # over Wi-Fi
+    image_topic: /rosbot_1/camera/rgb/image_raw
+    image_transport: compressed  # over Wi-Fi
     detections_topic: /aruco/detections
     marker_image_topic: /marker_image
     dictionary: DICT_ARUCO_ORIGINAL
 
 motion_controller:
   ros__parameters:
-    cmd_vel_topic: /cmd_vel
-    cmd_vel_stamped: true               # VERIFY: ros2 topic info /cmd_vel (TwistStamped -> true)
-    odom_topic: /odometry/filtered        # VERIFY
+    cmd_vel_topic: /rosbot_1/cmd_vel
+    cmd_vel_stamped: false  # ros2 topic info shows Twist
+    odom_topic: /rosbot_1/odometry/filtered
     detections_topic: /aruco/detections
-    camera_info_topic: /camera/color/camera_info  # VERIFY
+    camera_info_topic: /rosbot_1/camera/rgb/camera_info
     control_rate_hz: 20.0
     max_linear_velocity: 0.2
     max_angular_velocity: 0.6
