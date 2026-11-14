@@ -48,6 +48,10 @@ Terminal 3:
 ```bash
 ros2 run rqt_image_view rqt_image_view /marker_image # Image check on viewer
 ```
+Live camera with every detected marker drawn (optional):
+```bash
+ros2 run rqt_image_view rqt_image_view /aruco/debug_image
+```
 
 ROSbot (`ROS_DOMAIN_ID` 10, 11 or 12 for rosbot 1, 2 or 3):
 ```bash
@@ -62,7 +66,7 @@ actions), `treasure_hunt_bringup` (launch files and parameters).
 
 | Node | Role | Interfaces |
 |---|---|---|
-| `aruco_detector` | Perception | sub image (image_transport) → pub `/aruco/detections`; srv `capture_marker` → pub `/marker_image` |
+| `aruco_detector` | Perception | sub image (image_transport) → pub `/aruco/detections`; srv `capture_marker` → pub `/marker_image`; pub `/aruco/debug_image` (every frame) |
 | `motion_controller` | Motion, the only node publishing `/cmd_vel` | actions `reach_marker`, `rotate_by`; sub `/aruco/detections`, `/odometry/filtered`, `/camera/camera_info` |
 | `hunt_manager` | Mission state machine | clients of `reach_marker`, `rotate_by`, `capture_marker` |
 

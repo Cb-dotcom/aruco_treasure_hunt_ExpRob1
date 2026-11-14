@@ -35,7 +35,8 @@ private:
   int dictionary_id_;
 
   image_transport::Subscriber image_sub_;
-  image_transport::Publisher marker_image_pub_;
+  image_transport::Publisher marker_image_pub_;   // reached marker only
+  image_transport::Publisher debug_image_pub_;    // every frame
   rclcpp::Publisher<MarkerDetectionArray>::SharedPtr detections_pub_;
   rclcpp::Service<CaptureMarker>::SharedPtr capture_srv_;
 

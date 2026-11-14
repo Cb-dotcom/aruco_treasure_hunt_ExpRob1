@@ -89,11 +89,14 @@ ArucoDetectorComponent::ArucoDetectorComponent(const rclcpp::NodeOptions & optio
     declare_parameter<std::string>("detections_topic", "/aruco/detections");
   const auto marker_image_topic =
     declare_parameter<std::string>("marker_image_topic", "/marker_image");
+  const auto debug_image_topic =
+    declare_parameter<std::string>("debug_image_topic", "/aruco/debug_image");
   dictionary_id_ =
     dictionary_from_name(declare_parameter<std::string>("dictionary", "DICT_ARUCO_ORIGINAL"));
 
   detections_pub_ = create_publisher<MarkerDetectionArray>(detections_topic, 10);
   marker_image_pub_ = image_transport::create_publisher(this, marker_image_topic);
+  debug_image_pub_ = image_transport::create_publisher(this, debug_image_topic);
   image_sub_ = image_transport::create_subscription(
     this, image_topic,
     [this](const sensor_msgs::msg::Image::ConstSharedPtr & msg) {image_callback(msg);},
@@ -136,6 +139,15 @@ void ArucoDetectorComponent::image_callback(const sensor_msgs::msg::Image::Const
     detections.markers.push_back(marker);
   }
   detections_pub_->publish(detections);
+
+  // Every frame with all markers drawn, only when someone is watching.
+  if (debug_image_pub_.getNumSubscribers() > 0) {
+    cv::Mat annotated = frame.clone();
+    for (const auto & marker : detections.markers) {
+      draw_marker(annotated, marker);
+    }
+    debug_image_pub_.publish(cv_bridge::CvImage(msg->header, "bgr8", annotated).toImageMsg());
+  }
 
   std::lock_guard<std::mutex> lock(frame_mutex_);
   last_frame_ = frame;
