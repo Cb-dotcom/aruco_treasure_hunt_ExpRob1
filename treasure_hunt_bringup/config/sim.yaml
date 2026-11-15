@@ -44,6 +44,7 @@ motion_controller:
 
 hunt_manager:
   ros__parameters:
+    state_topic: /treasure_hunt/state
     startup_delay_sec: 3.0
     markers:
       ids: [1, 2, 3]                      # marker id -> rotation, + = left
