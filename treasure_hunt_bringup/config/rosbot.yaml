@@ -45,6 +45,11 @@ motion_controller:
 hunt_manager:
   ros__parameters:
     startup_delay_sec: 3.0
+    preflight_timeout_sec: 10
+    image_topic: /rosbot_1/camera/rgb/image_raw
+    image_transport: compressed
+    camera_info_topic: /rosbot_1/camera/rgb/camera_info
+    odom_topic: /rosbot_1/odometry/filtered
     markers:
       ids: [1, 2, 3]
       rotations_deg: [-90.0, 180.0, 90.0]
