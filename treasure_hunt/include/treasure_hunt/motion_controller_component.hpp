@@ -74,6 +74,7 @@ private:
   double center_tolerance_;
   double align_threshold_;
   double lost_timeout_;
+  double missed_hold_;
   double k_yaw_;
   double yaw_tolerance_;
   double min_angular_;
