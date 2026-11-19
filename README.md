@@ -53,9 +53,9 @@ Live camera with every detected marker drawn (optional):
 ros2 run rqt_image_view rqt_image_view /aruco/debug_image
 ```
 
-ROSbot (`ROS_DOMAIN_ID` 10, 11 or 12 for rosbot 1, 2 or 3):
+ROSbot (`ROS_DOMAIN_ID` is the number on the robot; robot 13 is `/rosbot_3`):
 ```bash
-export ROS_DOMAIN_ID=10
+export ROS_DOMAIN_ID=13
 ros2 launch treasure_hunt_bringup treasure_hunt.launch.py robot:=rosbot
 ```
 
