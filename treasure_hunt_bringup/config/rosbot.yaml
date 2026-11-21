@@ -1,4 +1,5 @@
-# Real ROSbot: robot 13 (/rosbot_3, ROS_DOMAIN_ID=13). For another robot, change the /rosbot_N prefix.
+# Real ROSbot: robot 12 (ROS_DOMAIN_ID=12). Its camera topics are under /rosbot_2/rosbot_2/ and it
+# publishes no /rosbot_2/odometry/filtered, so wheel odometry is used. Check with ros2 topic list.
 # The robot camera is 320 px wide (640 in sim), so pixel thresholds are half the sim ones.
 /**:
   ros__parameters:
@@ -6,7 +7,7 @@
 
 aruco_detector:
   ros__parameters:
-    image_topic: /rosbot_3/camera/rgb/image_raw
+    image_topic: /rosbot_2/rosbot_2/camera/rgb/image_raw
     image_transport: compressed  # over Wi-Fi
     detections_topic: /aruco/detections
     marker_image_topic: /marker_image
@@ -15,11 +16,11 @@ aruco_detector:
 
 motion_controller:
   ros__parameters:
-    cmd_vel_topic: /rosbot_3/cmd_vel
+    cmd_vel_topic: /rosbot_2/cmd_vel
     cmd_vel_stamped: false  # ros2 topic info shows Twist
-    odom_topic: /rosbot_3/odometry/filtered
+    odom_topic: /rosbot_2/odometry/wheels
     detections_topic: /aruco/detections
-    camera_info_topic: /rosbot_3/camera/rgb/camera_info
+    camera_info_topic: /rosbot_2/rosbot_2/camera/rgb/camera_info
     control_rate_hz: 20.0
     max_linear_velocity: 0.2
     max_angular_velocity: 0.6
@@ -34,7 +35,7 @@ motion_controller:
       k_v: 0.005
       target_side_px: 166.0             # scaled by fx / reference_focal_length_px
       reference_focal_length_px: 381.36
-      side_tolerance_px: 4.0
+      side_tolerance_px: 20.0           # closer, the marker leaves the 240 px high frame
       center_tolerance_px: 8.0
       align_threshold_px: 30.0
       lost_timeout_sec: 5.0
