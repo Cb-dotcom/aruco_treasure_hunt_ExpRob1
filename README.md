@@ -176,8 +176,22 @@ $$
 
 ## Videos
 
-- Simulation: *link*
-- Real ROSbot: *link*
+Full hunt, markers 1 → 4, in simulation and on the real ROSbot. Click a preview for the full video.
+
+<table>
+  <tr>
+    <th width="50%">Simulation (Gazebo)</th>
+    <th width="50%">Real ROSbot</th>
+  </tr>
+  <tr>
+    <td><a href="media/sim.mp4"><img src="media/sim.gif" alt="Simulation run" width="100%"></a></td>
+    <td><a href="media/real.mp4"><img src="media/real.gif" alt="Real ROSbot run" width="100%"></a></td>
+  </tr>
+  <tr>
+    <td align="center">Gazebo with the <code>/aruco/debug_image</code> view. 85 s, preview at 3×</td>
+    <td align="center">Overhead view of the lab run. 78 s, preview at 4×</td>
+  </tr>
+</table>
 
 ## Contributors
 
