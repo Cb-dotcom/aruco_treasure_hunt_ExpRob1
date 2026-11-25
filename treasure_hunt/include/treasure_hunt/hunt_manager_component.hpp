@@ -47,7 +47,12 @@ private:
   State state_{State::IDLE};
   std::map<int, double> rotations_;  // marker id -> rotation [rad], + = left
   int final_id_;                     // treasure marker: stop there
+  int preflight_timeout_sec_{10};
   std::vector<int> done_ids_;        // markers already executed (ignored from now on)
+  std::string image_topic_;
+  std::string image_transport_;
+  std::string camera_info_topic_;
+  std::string odom_topic_;
 };
 
 }  // namespace treasure_hunt
