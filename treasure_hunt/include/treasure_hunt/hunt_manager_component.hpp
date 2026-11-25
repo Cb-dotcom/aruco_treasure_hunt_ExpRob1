@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include <std_msgs/msg/string.hpp>
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "treasure_hunt_interfaces/action/reach_marker.hpp"
 #include "treasure_hunt_interfaces/action/rotate_by.hpp"
@@ -41,6 +42,7 @@ private:
   rclcpp_action::Client<RotateBy>::SharedPtr rotate_client_;
   rclcpp::Client<CaptureMarker>::SharedPtr capture_client_;
   rclcpp::TimerBase::SharedPtr start_timer_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
 
   State state_{State::IDLE};
   std::map<int, double> rotations_;  // marker id -> rotation [rad], + = left

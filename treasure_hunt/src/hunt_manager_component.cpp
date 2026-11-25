@@ -29,6 +29,12 @@ HuntManagerComponent::HuntManagerComponent(const rclcpp::NodeOptions & options)
     declare_parameter<std::vector<double>>("markers.rotations_deg", {-90.0, 180.0, 90.0});
   final_id_ = declare_parameter<int>("markers.final_id", 4);
   const auto startup_delay = declare_parameter<double>("startup_delay_sec", 3.0);
+  const auto state_topic =
+  declare_parameter<std::string>("state_topic", "/treasure_hunt/state");
+
+  state_pub_ = create_publisher<std_msgs::msg::String>(
+    state_topic,
+    rclcpp::QoS(1).transient_local().reliable());
 
   if (ids.size() != rotations_deg.size()) {
     throw std::invalid_argument("markers.ids and markers.rotations_deg must have the same size");
@@ -131,7 +137,19 @@ void HuntManagerComponent::on_rotated(const RotateGoalHandle::WrappedResult & re
 void HuntManagerComponent::set_state(State state, const std::string & reason)
 {
   state_ = state;
-  RCLCPP_INFO(get_logger(), "[%s] %s", to_string(static_cast<int>(state)), reason.c_str());
+
+  const std::string state_name =
+    to_string(static_cast<int>(state));
+
+  if (state_pub_) {
+    std_msgs::msg::String msg;
+    msg.data = state_name;
+    state_pub_->publish(msg);
+  }
+
+  RCLCPP_INFO(
+    get_logger(), "[%s] %s",
+    state_name.c_str(), reason.c_str());
 }
 
 }  // namespace treasure_hunt
