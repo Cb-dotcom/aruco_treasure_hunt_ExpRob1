@@ -53,11 +53,19 @@ Live camera with every detected marker drawn (optional):
 ros2 run rqt_image_view rqt_image_view /aruco/debug_image
 ```
 
-ROSbot (`ROS_DOMAIN_ID` 10, 11 or 12 for rosbot 1, 2 or 3):
+### ROSbot
+
+`ROS_DOMAIN_ID` is the number on the robot. The robot runs Jazzy: from a Humble laptop, use Cyclone
+DDS, otherwise the camera images don't arrive.
 ```bash
-export ROS_DOMAIN_ID=10
+sudo apt install ros-humble-rmw-cyclonedds-cpp   # Humble laptop only, once
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp     # Humble laptop only, in every terminal
+export ROS_DOMAIN_ID=12
 ros2 launch treasure_hunt_bringup treasure_hunt.launch.py robot:=rosbot
 ```
+Topic names differ between robots: on robot 12 the camera is under `/rosbot_2/rosbot_2/camera/` and
+the odometry is `/rosbot_2/odometry/wheels`. Check with `ros2 topic list | grep rosbot` and set them
+in `config/rosbot.yaml`. If topics are listed but no data arrives, run `sudo ufw disable` during the lab.
 
 ## Architecture
 
@@ -159,11 +167,31 @@ s_d = 166 \text{ px} \;\Leftrightarrow\; d = \frac{381.36 \cdot 0.2}{166} \appro
 $$
 
 (camera to marker). On the ROSbot the camera has another focal length $f_x'$, read from
-`camera_info`, and the target is scaled so the robot stops at the same distance without retuning:
+`camera_info`, and the target is scaled so the robot stops at the same distance without retuning
+(robot 13: $f_x' = 288.38$ px, so $s_d' \approx 125.5$ px):
 
 $$
 s_d' = 166 \cdot \frac{f_x'}{381.36}
 $$
+
+## Videos
+
+Full hunt, markers 1 → 4, in simulation and on the real ROSbot. Click a preview for the full video.
+
+<table>
+  <tr>
+    <th width="50%">Simulation (Gazebo)</th>
+    <th width="50%">Real ROSbot</th>
+  </tr>
+  <tr>
+    <td><a href="media/sim.mp4"><img src="media/sim.gif" alt="Simulation run" width="100%"></a></td>
+    <td><a href="media/real.mp4"><img src="media/real.gif" alt="Real ROSbot run" width="100%"></a></td>
+  </tr>
+  <tr>
+    <td align="center">Gazebo with the <code>/aruco/debug_image</code> view. 85 s, preview at 3×</td>
+    <td align="center">Overhead view of the lab run. 78 s, preview at 4×</td>
+  </tr>
+</table>
 
 ## Contributors
 

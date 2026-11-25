@@ -17,6 +17,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(treasure_hunt_interfaces REQUIRED)
+find_package(std_msgs REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/aruco_detector_component.cpp
@@ -28,6 +29,7 @@ target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 ament_target_dependencies(${PROJECT_NAME}
   cv_bridge geometry_msgs image_transport nav_msgs rclcpp rclcpp_action rclcpp_components
   sensor_msgs treasure_hunt_interfaces
+  std_msgs
 )
 
 rclcpp_components_register_node(${PROJECT_NAME}

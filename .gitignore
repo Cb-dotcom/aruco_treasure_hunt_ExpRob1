@@ -15,6 +15,7 @@ CLAUDE.md
 CLAUDE.local.md
 .claude/
 
-# Videos: link them in the README instead
+# Videos: only the compressed ones in media/
 *.mp4
 *.webm
+!media/*.mp4

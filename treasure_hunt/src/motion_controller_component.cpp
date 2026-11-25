@@ -87,6 +87,7 @@ MotionControllerComponent::MotionControllerComponent(const rclcpp::NodeOptions &
   center_tolerance_ = declare_parameter<double>("approach.center_tolerance_px", 10.0);
   align_threshold_ = declare_parameter<double>("approach.align_threshold_px", 60.0);
   lost_timeout_ = declare_parameter<double>("approach.lost_timeout_sec", 5.0);
+  missed_hold_ = declare_parameter<double>("approach.missed_hold_sec", 0.5);
   k_yaw_ = declare_parameter<double>("rotate.k_yaw", 1.5);
   yaw_tolerance_ = declare_parameter<double>("rotate.tolerance_rad", 0.02);
   min_angular_ = declare_parameter<double>("rotate.min_angular_velocity", 0.1);
@@ -210,8 +211,8 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
       drive(last_v, last_w);
     } else {
       // Marker not detected. Last seen off-centre: it left the view, turn towards it.
-      // Last seen ahead: it was only missed in this frame (far markers often are), so keep the
-      // last command; it slows down by itself near the target.
+      // Last seen ahead: keep the last command for a moment (far markers are often missed in
+      // single frames), then stop instead of driving blind.
       if (seconds_since(last_seen) > lost_timeout_) {
         abort_with("marker " + std::to_string(target_id) + " lost");
         return;
@@ -220,8 +221,10 @@ void MotionControllerComponent::execute_reach(const std::shared_ptr<ReachGoalHan
         drive(0.0, 0.0);  // camera frames stopped arriving: wait
       } else if (std::abs(last_error_u) > search_max_offset_) {
         drive(0.0, last_error_u > 0.0 ? -search_angular_ : search_angular_);
-      } else {
+      } else if (seconds_since(last_seen) < missed_hold_) {
         drive(last_v, last_w);
+      } else {
+        drive(0.0, 0.0);
       }
     }
     goal_handle->publish_feedback(feedback);
